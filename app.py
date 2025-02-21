@@ -1,79 +1,78 @@
 import streamlit as st
 import requests
 import os
-from dotenv import load_dotenv
+import json
 
-# Load environment variables
-load_dotenv()
-
-# Configure Streamlit page
-st.set_page_config(page_title="Gemini Chatbot", page_icon="🤖")
-
-# Initialize session state for chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Gemini API configuration
+# Configurar la API key desde las variables de entorno
 API_KEY = os.getenv("GEMINI_API_KEY")
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
-def generate_response(prompt):
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    data = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "text": prompt
-                    }
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 1,
-            "topK": 40,
-            "topP": 0.95,
-            "maxOutputTokens": 8192,
-            "responseMimeType": "text/plain"
-        }
-    }
-    
+# Función para obtener respuesta del modelo usando la API REST
+def get_response(prompt):
     try:
-        response = requests.post(f"{API_URL}?key={API_KEY}", headers=headers, json=data)
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 1,
+                "topK": 40,
+                "topP": 0.95,
+                "maxOutputTokens": 8192,
+                "responseMimeType": "text/plain"
+            }
+        }
+        
+        response = requests.post(
+            f"{API_URL}?key={API_KEY}",
+            headers=headers,
+            json=payload
+        )
+        
+        # Verificar si la solicitud fue exitosa
         response.raise_for_status()
         return response.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as e:
-        return f"Error: {str(e)}"
+        
+    except requests.exceptions.RequestException as e:
+        return f"Error en la solicitud: {str(e)}"
+    except (KeyError, IndexError) as e:
+        return f"Error procesando la respuesta: {str(e)}"
 
-# Main UI
-st.title("🤖 Gemini Chatbot")
+# Configuración de la interfaz de Streamlit
+st.title("Chat General con Gemini 2.0 Flash")
+st.write("Pregunta lo que quieras y obtén respuestas generadas por IA")
 
-# Display chat messages
+# Inicializar el historial del chat en la sesión
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Mostrar mensajes del historial
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.write(message["content"])
+        st.markdown(message["content"])
 
-# Chat input
-if prompt := st.chat_input("What would you like to know?"):
-    # Display user message
+# Entrada del usuario
+if prompt := st.chat_input("Escribe tu mensaje aqui..."):
+    # Mostrar mensaje del usuario
     with st.chat_message("user"):
-        st.write(prompt)
+        st.markdown(prompt)
+    # Agregar mensaje al historial
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    # Generate and display assistant response
+    # Obtener y mostrar respuesta del asistente
     with st.chat_message("assistant"):
-        response = generate_response(prompt)
-        st.write(response)
+        response = get_response(prompt)
+        st.markdown(response)
+    # Agregar respuesta al historial
     st.session_state.messages.append({"role": "assistant", "content": response})
-
-# Add a sidebar with information
-with st.sidebar:
-    st.title("About")
-    st.info("""
-    This chatbot uses Google's Gemini API to generate responses.
-    Please ensure you have set your GEMINI_API_KEY in the .env file.
-    """)
