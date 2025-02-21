@@ -1,3 +1,7 @@
 streamlit
 requests
 python-dotenv
+speechrecognition
+pyaudio
+google-cloud-speech
+duckduckgo-search-py
